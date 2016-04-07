@@ -168,9 +168,9 @@ eavesdropping, tampering, and message forgery between two peers. It is also
 designed to minimize the number of rounds required to establish a shared key.
 In the worst case, it requires two RTTs between a consumer and producer to establish
 a shared key. In the best case, one RTT is required before sending any application
-data. This document outlines how to derive the keys used to encrypt traffic for
-a session and shows how session information is exchanged between a consumer
-and producer using message encapsulation.
+data. This document outlines how to derive the keys used to encrypt traffic.
+An annex provides an example peer-to-peer transport protocol for exchanging
+encrypted CCNx communications.
 
 --- middle
 
@@ -178,19 +178,45 @@ and producer using message encapsulation.
 
 DISCLAIMER: This is a WIP draft of CCNxKE and has not yet seen rigorous security analysis.
 
-Ephemeral sessions similar to those enabled by TLS 1.3 {{TLS13}},
-QUIC {{QUIC}}, and DTLS 1.2 {{DTLS12}} are needed for some
-CCN exchanges between consumers and producers. Currently, there does not exist
-a standard way to establish these sessions. Thus, the primary goal of
-the CCNxKE protocol is to provide privacy and data integrity between two CCN-enabled
-peers (e.g., a consumer and producer engaged in session-based communication). It
+CCNx Key Exchange (CCNxKE) establishes ephemeral forward secure keys between two peers,
+called the consumer (client) and producer (server).  The underlying cryptography of
+CCNxKE is similar to TLS 1.3, though there are some protocol changes due to the ICN nature
+of CCNxKE.  CCNxKE also supports the concept of a MoveToken, which allows the authenticating
+producer to shift a session to one (or more) co-operating replicas.  
+
+CCNxKE does not specify how the keys are used.  It only specifies how to derive the traffic
+secret that could be used to encrypt/decrypt data.  The draft [draft-wood-icnrg-tlvencap] specifies
+one way to use the traffic secret to carry out communications in a session.  
+Annex A also sketches out an example CCNx protocol for exchanging encrypted messages,
+though it is not part of this standard.
+Other protocols may use CCNxKE.  
+For example, a producer and replica may use CCNxKE to establish a shared key to use
+in Move Tokens.  Two routers may use CCNxKE to establish MACSEC keys.  A consumer and publisher could establish
+a symmetric key while on-line then publish content later for an off-line consumer.
+In short, the use of CCNxKE is not limited to a TLS-like transport protocol.
+
+CCNxKE allows upper-layer data to be returned in Round 3, like TLS 1.3.  In this sense, one can achieve 3 RTT
+(worst case) or 1 RTT (best case) communcations.  The data put in this response is up to the 
+protocol using CCNxKE and may or may not be used.
+
+CCNxKE is not a substitue for
+data authenticity, such as Content Object provenance via signatures, group encryption of cached objects,
+or DRM protections.  CCNxKE only creates a private, ephemeral tunnel between a consumer
+and a producer.  CCNxKE expects that the encrypted communications protocol still carries
+normal CCNx packets with normal CCNx attributes such as signatures.
+
+Some types of ICN communications require emphemeral, forward secure encryption.
+Typical examples are on-line banking, real-time voice, or on-line shopping.
+Other applications may need different types of encryption and thus not use CCNxKE.
+There is currently no standard way for CCNx peers to exchange emphemeral, forward
+secure keys, thus this RFC specifies the standard mechanism that should be used
+by all CCNx peers for such keys. CCNxKE
 is built on the CCNx 1.0 protocol and only relies
 upon standard Interest and Content Objects as a vehicle for communication.
-The CCNxKE protocol is used to bootstrap session-based communication, wherein
-traffic is encapsulated and encrypted using symmetric-key cryptography for
-transmission between two endpoints (i.e., a consumer and producer). The CCNxKE
-protocol enables this form of communication by establishing shared state,
-i.e., shared, ephemeral, and forward-secure symmetric keys.
+
+In this document, the term 'CCNxKE session' refers to the key exchange session.
+It does not refer to a transport protocol session (like TLS) that uses the derived keys.
+
 This protocol has the following four main properties:
 
 - Each peer's identity can be authenticated using asymmetric, or
@@ -211,10 +237,8 @@ This allows authentication and authorization to be separated from encryption for
 a session, enabling different systems to complete these steps.
 
 Usage of CCNxKE is entirely independent of upper-layer application protocols.
-Session-based communication via encapsulation and encryption enables secure,
-confidential, and authenticated communication between two peers. One advantage
-of this protocol is that it facilitates the creation and use of ephemeral
-CCN Interest and Content Objects.
+CCNxKE may be used for any purpose that requires producer authentication and 
+shared emphemeral forward-secure keys.
 
 CCNxKE also introduces a new type of cookie based on reverse hash chains {{HASHCHAIN}}
 to help limit the amount of significant server work done in response to a client
@@ -229,7 +253,8 @@ a key exchange.
 The main contribution of this work is adapting key exchange principles to the pull-based
 CCNx communication model. CCNxKE only assumes that a consumer knows a first name prefix
 to initiate the key exchange. The first Interest does not need to be a CCNxKE packet — the
-producer can signal back to the consumer that it requires CCNxKE before progressing.
+producer can signal back to the consumer that it requires a transport protocol
+using CCNxKE in the response.
 
 This specification does not subsume other ICN-compliant key exchange protocols. Nor
 does its existence imply that all encryption in an ICN must be based on sessions.
@@ -336,6 +361,10 @@ is intended primarily for readers who will be implementing the protocol and for
 those doing cryptographic analysis of it. The specification has been written with
 this in mind and it is intended to reflect the needs of those two groups.
 
+Unlike TLS, this document does not specify the transport protocol.  It specifies
+the establishment of a session ID and shared keys.  Other documents specify
+the use of CCKxKE within a transport protocol.
+
 This document is not intended to supply any details of service definition or
 of interface definition, although it does cover select areas of policy as they are
 required for the maintenance of solid security.
@@ -424,7 +453,7 @@ execute the CCNxKE protocol.
 
 - CCNxKE protocol information is carried in a distinguished field outside of the payload of CCN messages.
 This is done to distinguish key exchange material with application data in a message.
-This is necessary for 0 RTT packets that carry both keying material and application payload.
+This is necessary for 1 RTT packets that carry both keying material and application payload.
 
 - CCNxKE does not require any special behavior of intermediate systems to forward packets.
 
